@@ -71,8 +71,8 @@ async fn run(game: Box<dyn game::Game>) {
             last_frame_time = current_time;
             fixed_frame_accumulator += delta_time;
 
-            if fixed_frame_accumulator >= fixed_update_delta {
-                fixed_frame_accumulator = 0.0;
+            while fixed_frame_accumulator >= fixed_update_delta {
+                fixed_frame_accumulator -= fixed_update_delta;
                 state.fixed_update();
             }
 
