@@ -21,7 +21,7 @@ impl<'a> RenderHandle<'a> {
 
     pub fn begin_render_pass<'b>(
         &'b mut self,
-        camera_handle: resource_handles::CameraHandle,
+        camera_handle: camera::CameraHandle,
         clear_color: wgpu::Color,
         set_target: Option<&'b texture::Texture>,
     ) -> (wgpu::RenderPass, &camera::Camera) {

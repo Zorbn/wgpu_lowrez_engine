@@ -29,9 +29,6 @@ pub struct State {
     input_handler: input::Input,
     fixed_input_handler: input::Input,
     cameras: Vec<camera::Camera>,
-    models: Vec<model::Model>,
-    textures: Vec<texture::Texture>,
-    pipelines: Vec<wgpu::RenderPipeline>,
 }
 
 impl State {
