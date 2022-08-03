@@ -1,3 +1,3 @@
 fn main() {
-    pollster::block_on(bvox::run());
+    wgpu_lowrez_engine::run();
 }

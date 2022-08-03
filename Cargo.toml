@@ -1,5 +1,5 @@
 [package]
-name = "bvox"
+name = "wgpu_lowrez_engine"
 version = "0.1.0"
 edition = "2021"
 
