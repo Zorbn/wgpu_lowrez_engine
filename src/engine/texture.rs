@@ -6,6 +6,7 @@ pub struct Texture {
     view: wgpu::TextureView,
     sampler: wgpu::Sampler,
     bind_group_layout: Option<wgpu::BindGroupLayout>,
+    bind_group: Option<wgpu::BindGroup>,
 }
 
 impl Texture {
@@ -52,6 +53,7 @@ impl Texture {
             view,
             sampler,
             bind_group_layout: None,
+            bind_group: None,
         }
     }
 
@@ -172,31 +174,27 @@ impl Texture {
                 ],
                 label: Some("texture_bind_group_layout"),
             });
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+            ],
+            label: Some("render_texture_bind_group"),
+        });
 
         Ok(Self {
             texture,
             view,
             sampler,
             bind_group_layout: Some(bind_group_layout),
-        })
-    }
-
-    pub fn create_bind_group(&self, device: &wgpu::Device) -> wgpu::BindGroup {
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: self
-                .bind_group_layout()
-                .expect("Tried to create a bind group for a texture without a bind group layout!"),
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(self.view()),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(self.sampler()),
-                },
-            ],
-            label: Some("render_texture_bind_group"),
+            bind_group: Some(bind_group),
         })
     }
 
@@ -215,6 +213,13 @@ impl Texture {
     pub fn bind_group_layout(&self) -> Option<&wgpu::BindGroupLayout> {
         match &self.bind_group_layout {
             Some(bgl) => Some(bgl),
+            _ => None,
+        }
+    }
+
+    pub fn bind_group(&self) -> Option<&wgpu::BindGroup> {
+        match &self.bind_group {
+            Some(bg) => Some(bg),
             _ => None,
         }
     }

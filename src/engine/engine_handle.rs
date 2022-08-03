@@ -1,12 +1,10 @@
-use crate::engine::{camera, model, resource_handles, texture, vertex};
+use crate::engine::{camera, model, pipeline, texture, vertex};
 
 pub struct EngineHandle<'a> {
     device: &'a mut wgpu::Device,
     queue: &'a mut wgpu::Queue,
     config: &'a mut wgpu::SurfaceConfiguration,
     cameras: &'a mut Vec<camera::Camera>,
-    models: &'a mut Vec<model::Model>,
-    textures: &'a mut Vec<texture::Texture>,
 }
 
 impl<'a> EngineHandle<'a> {
@@ -15,16 +13,12 @@ impl<'a> EngineHandle<'a> {
         queue: &'a mut wgpu::Queue,
         config: &'a mut wgpu::SurfaceConfiguration,
         cameras: &'a mut Vec<camera::Camera>,
-        models: &'a mut Vec<model::Model>,
-        textures: &'a mut Vec<texture::Texture>,
     ) -> Self {
         Self {
             device,
             queue,
             config,
             cameras,
-            models,
-            textures,
         }
     }
 
@@ -34,10 +28,9 @@ impl<'a> EngineHandle<'a> {
         target: cgmath::Point3<f32>,
         up: cgmath::Vector3<f32>,
         projection: Box<dyn camera::Projection>,
-        texture: resource_handles::TextureHandle,
         set_width: Option<u32>,
         set_height: Option<u32>,
-    ) -> resource_handles::CameraHandle {
+    ) -> camera::CameraHandle {
         let new_cam_index = self.cameras.len();
 
         let width = match set_width {
@@ -57,9 +50,6 @@ impl<'a> EngineHandle<'a> {
             target,
             up,
             projection,
-            "shader.wgsl",
-            self.config.format,
-            &self.textures[texture.0],
             width,
             height,
             fixed_size,
@@ -67,20 +57,15 @@ impl<'a> EngineHandle<'a> {
 
         self.cameras.push(camera);
 
-        resource_handles::CameraHandle(new_cam_index)
+        camera::CameraHandle(new_cam_index)
     }
 
     pub fn create_model(
         &mut self,
         vertices: &[vertex::Vertex],
         indices: &[u16],
-    ) -> resource_handles::ModelHandle {
-        let new_model_index = self.models.len();
-
-        let model = model::Model::new(self.device, vertices, indices);
-        self.models.push(model);
-
-        resource_handles::ModelHandle(new_model_index)
+    ) -> model::Model {
+        model::Model::new(self.device, vertices, indices)
     }
 
     pub fn create_texture(
@@ -90,10 +75,8 @@ impl<'a> EngineHandle<'a> {
         format: wgpu::TextureFormat,
         extra_usages: wgpu::TextureUsages,
         label: Option<&str>,
-    ) -> resource_handles::TextureHandle {
-        let new_tex_index = self.textures.len();
-
-        let texture = texture::Texture::from_dimensions(
+    ) -> texture::Texture {
+        texture::Texture::from_dimensions(
             self.device,
             width,
             height,
@@ -107,24 +90,35 @@ impl<'a> EngineHandle<'a> {
                 Some(l) => l,
                 _ => "[no label]",
             }
-        ));
-
-        self.textures.push(texture);
-
-        resource_handles::TextureHandle(new_tex_index)
+        ))
     }
 
-    pub fn load_texture(&mut self, res_path: &str) -> resource_handles::TextureHandle {
-        let new_tex_index = self.textures.len();
+    pub fn create_pipeline(
+        &mut self,
+        shader_res_path: &str,
+        bind_group_layouts: &[&wgpu::BindGroupLayout],
+        camera_handle: Option<camera::CameraHandle>,
+    ) -> wgpu::RenderPipeline {
+        let mut layouts = bind_group_layouts.to_vec();
 
-        let texture = texture::Texture::from_path(self.device, self.queue, res_path)
-            .expect(&format!("Failed to load texture from path: {}", res_path));
-        self.textures.push(texture);
+        if let Some(handle) = camera_handle {
+            layouts.push(self.cameras[handle.0].bind_group_layout());
+        }
 
-        resource_handles::TextureHandle(new_tex_index)
+        pipeline::create_pipeline(
+            self.device,
+            self.config.format,
+            shader_res_path,
+            layouts.as_slice(),
+        )
     }
 
-    pub fn get_camera(&mut self, handle: resource_handles::CameraHandle) -> &mut camera::Camera {
+    pub fn load_texture(&mut self, res_path: &str) -> texture::Texture {
+        texture::Texture::from_path(self.device, self.queue, res_path)
+            .expect(&format!("Failed to load texture from path: {}", res_path))
+    }
+
+    pub fn get_camera(&mut self, handle: camera::CameraHandle) -> &mut camera::Camera {
         &mut self.cameras[handle.0]
     }
 }

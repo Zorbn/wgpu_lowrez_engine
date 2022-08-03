@@ -1,6 +1,6 @@
 use crate::engine::{
-    asset_handle, camera, engine_handle, game, input, model, render_handle, resource_handles,
-    vertex,
+    camera, engine_handle, game, input, model, render_handle,
+    vertex, texture,
 };
 
 const VERTICES: &[vertex::Vertex] = &[
@@ -53,12 +53,13 @@ const SCREEN_SIZE: u32 = 64;
 
 pub struct LowRezGameState {
     fixed_update_count: u32,
-    camera: resource_handles::CameraHandle,
-    v_camera: resource_handles::CameraHandle,
-    diffuse_texture: resource_handles::TextureHandle,
-    render_texture: resource_handles::TextureHandle,
-    tree_model: resource_handles::ModelHandle,
-    v_screen_model: resource_handles::ModelHandle,
+    camera: camera::CameraHandle,
+    v_camera: camera::CameraHandle,
+    diffuse_texture: texture::Texture,
+    render_texture: texture::Texture,
+    tree_model: model::Model,
+    screen_model: model::Model,
+    pipeline: wgpu::RenderPipeline,
 }
 
 pub struct LowRezGame {
@@ -76,12 +77,9 @@ impl LowRezGame {
 
     fn render_game(
         state: &LowRezGameState,
-        render_handle: &mut render_handle::RenderHandle,
-        asset_handle: &asset_handle::AssetHandle,
+        handle: &mut render_handle::RenderHandle,
     ) {
-        let model = asset_handle.get_model(state.tree_model);
-        let render_texture = asset_handle.get_texture(state.render_texture);
-        let mut render_pass = render_handle.begin_render_pass(
+        let (mut render_pass, camera) = handle.begin_render_pass(
             state.v_camera,
             wgpu::Color {
                 r: 1.0,
@@ -89,20 +87,21 @@ impl LowRezGame {
                 b: 0.0,
                 a: 1.0,
             },
-            Some(render_texture),
+            Some(&state.render_texture),
         );
-        render_pass.set_vertex_buffer(0, model.vertices().slice(..));
-        render_pass.set_index_buffer(model.indices().slice(..), wgpu::IndexFormat::Uint16);
-        render_pass.draw_indexed(0..model.num_indices(), 0, 0..1);
+        render_pass.set_pipeline(&state.pipeline);
+        render_pass.set_bind_group(0, state.diffuse_texture.bind_group().unwrap(), &[]);
+        render_pass.set_bind_group(1, camera.bind_group(), &[]);
+        render_pass.set_vertex_buffer(0, state.tree_model.vertices().slice(..));
+        render_pass.set_index_buffer(state.tree_model.indices().slice(..), wgpu::IndexFormat::Uint16);
+        render_pass.draw_indexed(0..state.tree_model.num_indices(), 0, 0..1);
     }
 
     fn render_screen(
         state: &LowRezGameState,
-        render_handle: &mut render_handle::RenderHandle,
-        asset_handle: &asset_handle::AssetHandle,
+        handle: &mut render_handle::RenderHandle,
     ) {
-        let screen_model = asset_handle.get_model(state.v_screen_model);
-        let mut render_pass = render_handle.begin_render_pass(
+        let (mut render_pass, camera) = handle.begin_render_pass(
             state.camera,
             wgpu::Color {
                 r: 0.0,
@@ -112,14 +111,49 @@ impl LowRezGame {
             },
             None,
         );
-        render_pass.set_vertex_buffer(0, screen_model.vertices().slice(..));
-        render_pass.set_index_buffer(screen_model.indices().slice(..), wgpu::IndexFormat::Uint16);
-        render_pass.draw_indexed(0..screen_model.num_indices(), 0, 0..1);
+        render_pass.set_pipeline(&state.pipeline);
+        render_pass.set_bind_group(0, state.render_texture.bind_group().unwrap(), &[]);
+        render_pass.set_bind_group(1, camera.bind_group(), &[]);
+        render_pass.set_vertex_buffer(0, state.screen_model.vertices().slice(..));
+        render_pass.set_index_buffer(state.screen_model.indices().slice(..), wgpu::IndexFormat::Uint16);
+        render_pass.draw_indexed(0..state.screen_model.num_indices(), 0, 0..1);
     }
 }
 
 impl game::Game for LowRezGame {
-    fn start(&mut self, handle: &mut engine_handle::EngineHandle) {
+    fn start(
+        &mut self,
+        handle: &mut engine_handle::EngineHandle,
+    ) {
+        let camera = handle.create_camera(
+            (0.0, 0.0, 2.0).into(),
+            (0.0, 0.0, 0.0).into(),
+            cgmath::Vector3::unit_y(),
+            Box::new(camera::OrthographicProjection {
+                width: 1.0,
+                height: 1.0,
+                fixed_aspect_ratio: false,
+                z_near: 0.1,
+                z_far: 100.0,
+            }),
+            None,
+            None,
+        );
+        let v_camera = handle.create_camera(
+            (0.0, 0.0, 2.0).into(),
+            (0.0, 0.0, 0.0).into(),
+            cgmath::Vector3::unit_y(),
+            Box::new(camera::OrthographicProjection {
+                width: 1.0,
+                height: 1.0,
+                fixed_aspect_ratio: true,
+                z_near: 0.1,
+                z_far: 100.0,
+            }),
+            Some(SCREEN_SIZE),
+            Some(SCREEN_SIZE),
+        );
+
         let diffuse_texture = handle.load_texture("happy-tree.png");
         let render_texture = handle.create_texture(
             SCREEN_SIZE,
@@ -131,38 +165,15 @@ impl game::Game for LowRezGame {
 
         self.state = Some(LowRezGameState {
             fixed_update_count: 0,
-            camera: handle.create_camera(
-                (0.0, 0.0, 2.0).into(),
-                (0.0, 0.0, 0.0).into(),
-                cgmath::Vector3::unit_y(),
-                Box::new(camera::OrthographicProjection {
-                    width: 1.0,
-                    height: 1.0,
-                    fixed_aspect_ratio: false,
-                    z_near: 0.1,
-                    z_far: 100.0,
-                }),
-                render_texture,
-                None,
-                None,
-            ),
-            v_camera: handle.create_camera(
-                (0.0, 0.0, 2.0).into(),
-                (0.0, 0.0, 0.0).into(),
-                cgmath::Vector3::unit_y(),
-                Box::new(camera::OrthographicProjection {
-                    width: 1.0,
-                    height: 1.0,
-                    fixed_aspect_ratio: true,
-                    z_near: 0.1,
-                    z_far: 100.0,
-                }),
-                diffuse_texture,
-                Some(SCREEN_SIZE),
-                Some(SCREEN_SIZE),
+            camera,
+            v_camera,
+            pipeline: handle.create_pipeline(
+                "shader.wgsl",
+                &[diffuse_texture.bind_group_layout().unwrap()],
+                Some(camera),
             ),
             tree_model: handle.create_model(VERTICES, INDICES),
-            v_screen_model: handle.create_model(SCREEN_VERTICES, SCREEN_INDICES),
+            screen_model: handle.create_model(SCREEN_VERTICES, SCREEN_INDICES),
             diffuse_texture,
             render_texture,
         });
@@ -176,7 +187,11 @@ impl game::Game for LowRezGame {
     ) {
     }
 
-    fn fixed_update(&mut self, input: &input::Input, handle: &mut engine_handle::EngineHandle) {
+    fn fixed_update(
+        &mut self,
+        input: &input::Input,
+        handle: &mut engine_handle::EngineHandle,
+    ) {
         if let Some(state) = &mut self.state {
             state.fixed_update_count = state.fixed_update_count.overflowing_add(1).0;
 
@@ -190,12 +205,11 @@ impl game::Game for LowRezGame {
 
     fn render(
         &mut self,
-        render_handle: &mut render_handle::RenderHandle,
-        asset_handle: &asset_handle::AssetHandle,
+        handle: &mut render_handle::RenderHandle,
     ) {
         if let Some(state) = &mut self.state {
-            LowRezGame::render_game(state, render_handle, asset_handle);
-            LowRezGame::render_screen(state, render_handle, asset_handle);
+            LowRezGame::render_game(state, handle);
+            LowRezGame::render_screen(state, handle);
         }
     }
 

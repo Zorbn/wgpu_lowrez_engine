@@ -1,4 +1,4 @@
-use crate::engine::{camera, resource_handles, texture};
+use crate::engine::{camera, texture};
 
 pub struct RenderHandle<'a> {
     cameras: &'a mut Vec<camera::Camera>,
@@ -24,13 +24,15 @@ impl<'a> RenderHandle<'a> {
         camera_handle: resource_handles::CameraHandle,
         clear_color: wgpu::Color,
         set_target: Option<&'b texture::Texture>,
-    ) -> wgpu::RenderPass {
+    ) -> (wgpu::RenderPass, &camera::Camera) {
         let view = match set_target {
             Some(t) => t.view(),
             _ => self.view,
         };
 
-        let mut render_pass = self.encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        let camera = &self.cameras[camera_handle.0];
+
+        let render_pass = self.encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view,
@@ -41,7 +43,7 @@ impl<'a> RenderHandle<'a> {
                 },
             })],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &self.cameras[camera_handle.0].depth_texture().view(),
+                view: camera.depth_texture().view(),
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
                     store: true,
@@ -50,10 +52,6 @@ impl<'a> RenderHandle<'a> {
             }),
         });
 
-        render_pass.set_pipeline(&self.cameras[camera_handle.0].pipeline());
-        render_pass.set_bind_group(0, self.cameras[camera_handle.0].texture_bind_group(), &[]);
-        render_pass.set_bind_group(1, self.cameras[camera_handle.0].bind_group(), &[]);
-
-        render_pass
+        (render_pass, camera)
     }
 }

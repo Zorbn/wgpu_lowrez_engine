@@ -1,13 +1,12 @@
-pub mod asset_handle;
 pub mod camera;
 pub mod engine_handle;
 pub mod game;
 pub mod input;
 pub mod model;
+mod pipeline;
 pub mod render_handle;
-pub mod resource_handles;
 mod state;
-mod texture;
+pub mod texture;
 pub mod vertex;
 
 use std::time::Instant;
@@ -18,7 +17,6 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-// TODO: Abstract render passes & multiple cameras & make pipeline creation easier to allow for multiple shaders.
 pub fn start_game(game: Box<dyn game::Game>) {
     pollster::block_on(run(game));
 }

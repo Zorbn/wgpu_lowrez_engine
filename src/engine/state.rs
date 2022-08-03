@@ -1,5 +1,5 @@
 use crate::engine::{
-    asset_handle, camera, engine_handle, game, input, model, render_handle, texture,
+    camera, engine_handle, game, input, model, render_handle, texture,
 };
 
 macro_rules! engine_handle {
@@ -9,13 +9,12 @@ macro_rules! engine_handle {
             queue,
             config,
             cameras,
-            models,
-            textures,
             ..
         } = $sel;
 
-        let handle =
-            engine_handle::EngineHandle::new(device, queue, config, cameras, models, textures);
+        let handle = engine_handle::EngineHandle::new(
+            device, queue, config, cameras,
+        );
         handle
     }};
 }
@@ -32,6 +31,7 @@ pub struct State {
     cameras: Vec<camera::Camera>,
     models: Vec<model::Model>,
     textures: Vec<texture::Texture>,
+    pipelines: Vec<wgpu::RenderPipeline>,
 }
 
 impl State {
@@ -82,6 +82,7 @@ impl State {
             cameras: Vec::new(),
             models: Vec::new(),
             textures: Vec::new(),
+            pipelines: Vec::new(),
         }
     }
 
@@ -162,17 +163,9 @@ impl State {
                 label: Some("Render Encoder"),
             });
 
-        let State {
-            cameras,
-            models,
-            textures,
-            ..
-        } = self;
+        let mut render_handle = render_handle::RenderHandle::new(&mut self.cameras, &view, &mut encoder);
 
-        let mut render_handle = render_handle::RenderHandle::new(cameras, &view, &mut encoder);
-        let mut asset_handle = asset_handle::AssetHandle::new(models, textures);
-
-        self.game.render(&mut render_handle, &mut asset_handle);
+        self.game.render(&mut render_handle);
 
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();

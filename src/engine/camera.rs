@@ -1,4 +1,4 @@
-use crate::engine::{input, texture, vertex};
+use crate::engine::{input, texture};
 use cgmath::Matrix4;
 use wgpu::util::DeviceExt;
 use winit::event::VirtualKeyCode;
@@ -11,15 +11,15 @@ pub const OPENGL_TO_WGPU_MATRIX: Matrix4<f32> = Matrix4::new(
     0.0, 0.0, 0.5, 1.0,
 );
 
+#[derive(Copy, Clone)]
+pub struct CameraHandle(pub usize);
+
 pub struct Camera {
     pub viewpoint: ViewPoint,
     buffer: wgpu::Buffer,
-    // bind_group_layout: wgpu::BindGroupLayout,
+    bind_group_layout: wgpu::BindGroupLayout,
     bind_group: wgpu::BindGroup,
     depth_texture: texture::Texture,
-    // pipeline_layout: wgpu::PipelineLayout,
-    pipeline: wgpu::RenderPipeline,
-    texture_bind_group: wgpu::BindGroup,
     width: u32,
     height: u32,
     fixed_size: bool,
@@ -32,12 +32,6 @@ impl Camera {
         target: cgmath::Point3<f32>,
         up: cgmath::Vector3<f32>,
         projection: Box<dyn Projection>,
-        // TODO: Make the following into a separate function that adds a pipeline
-        // TODO: to the list of pipelines in this camera.
-        shader_res_path: &str,
-        format: wgpu::TextureFormat,
-        texture: &texture::Texture,
-        // END TODO
         screen_width: u32,
         screen_height: u32,
         fixed_size: bool,
@@ -83,69 +77,12 @@ impl Camera {
             "depth_texture",
         );
 
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Shader"),
-            source: wgpu::ShaderSource::Wgsl(
-                std::fs::read_to_string(format!("res/{}", shader_res_path))
-                    .unwrap()
-                    .into(),
-            ),
-        });
-
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[texture.bind_group_layout().unwrap(), &bind_group_layout],
-            push_constant_ranges: &[],
-        });
-
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: "vs_main",
-                buffers: &[vertex::Vertex::desc()],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
-                    format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                unclipped_depth: false,
-                polygon_mode: wgpu::PolygonMode::Fill,
-                conservative: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: texture::Texture::DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            multiview: None,
-        });
-
         Self {
             viewpoint,
             buffer,
             bind_group,
             depth_texture,
-            pipeline,
-            texture_bind_group: texture.create_bind_group(device),
+            bind_group_layout,
             width: screen_width,
             height: screen_height,
             fixed_size,
@@ -201,29 +138,17 @@ impl Camera {
         &self.buffer
     }
 
-    // pub fn bind_group_layout(&self) -> &wgpu::BindGroupLayout {
-    //     &self.bind_group_layout
-    // }
+    pub fn bind_group_layout(&self) -> &wgpu::BindGroupLayout {
+        &self.bind_group_layout
+    }
 
     pub fn bind_group(&self) -> &wgpu::BindGroup {
         &self.bind_group
     }
 
-    pub fn texture_bind_group(&self) -> &wgpu::BindGroup {
-        &self.texture_bind_group
-    }
-
     pub fn depth_texture(&self) -> &texture::Texture {
         &self.depth_texture
     }
-
-    pub fn pipeline(&self) -> &wgpu::RenderPipeline {
-        &self.pipeline
-    }
-
-    // pub fn pipeline_layout(&self) -> &wgpu::PipelineLayout {
-    //     &self.pipeline_layout
-    // }
 }
 
 pub struct ViewPoint {
