@@ -4,6 +4,8 @@ use crate::{
     game::voxels::{blocks, cube_mesh},
 };
 
+const MIN_BLOCK_TINT_BRIGHTNESS: f32 = 0.1;
+
 pub struct MeshData {
     pub vertices: Vec<vertex::Vertex>,
     pub indices: Vec<u16>,
@@ -60,6 +62,13 @@ fn generate_face(
         new_vertex.position[1] += y as f32;
         new_vertex.position[2] += z as f32;
         new_vertex.tex_index = texture_index;
+
+        let tint = (new_vertex.position[1] / chunk.world_height() as f32 + MIN_BLOCK_TINT_BRIGHTNESS).min(1.0);
+
+        for c in 0..3 {
+            new_vertex.color[c] *= tint;
+        }
+
         mesh_data.vertices.push(new_vertex);
     }
 

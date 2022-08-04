@@ -1,7 +1,6 @@
-use crate::engine::{input, texture};
+use crate::engine::texture;
 use cgmath::Matrix4;
 use wgpu::util::DeviceExt;
-use winit::event::VirtualKeyCode;
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: Matrix4<f32> = Matrix4::new(
@@ -119,29 +118,13 @@ impl Camera {
         (new_width, new_height)
     }
 
-    pub fn pan(&mut self, input: &input::Input, speed: f32) {
-        let mut dir_x = 0;
-        let mut dir_y = 0;
-
-        if input.is_key_held(VirtualKeyCode::Left) {
-            dir_x = -1;
-        }
-
-        if input.is_key_held(VirtualKeyCode::Right) {
-            dir_x = 1;
-        }
-
-        if input.is_key_held(VirtualKeyCode::Down) {
-            dir_y = -1;
-        }
-
-        if input.is_key_held(VirtualKeyCode::Up) {
-            dir_y = 1;
-        }
-
-        self.viewpoint.pos.x += dir_x as f32 * speed;
-        self.viewpoint.pos.y += dir_y as f32 * speed;
-        //self.viewpoint.target.x += dir_x as f32 * speed;
+    pub fn pan(&mut self, x_dist: f32, y_dist: f32, z_dist: f32) {
+        self.viewpoint.pos.x += x_dist;
+        self.viewpoint.pos.y += y_dist;
+        self.viewpoint.pos.z += z_dist;
+        self.viewpoint.target.x += x_dist;
+        self.viewpoint.target.y += y_dist;
+        self.viewpoint.target.z += z_dist;
     }
 
     pub fn buffer(&self) -> &wgpu::Buffer {

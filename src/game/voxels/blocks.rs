@@ -11,21 +11,23 @@ pub struct Chunk {
     width: u32,
     height: u32,
     depth: u32,
+    world_height: u32,
     blocks: Vec<Blocks>,
 }
 
 impl Chunk {
-    pub fn new(width: u32, height: u32, depth: u32) -> Self {
+    pub fn new(width: u32, height: u32, depth: u32, world_height: u32) -> Self {
         Chunk {
             width,
             height,
             depth,
+            world_height,
             blocks: vec![Blocks::AIR; (width * height * depth) as usize],
         }
     }
 
     pub fn generate(&mut self) {
-        let mut rng = rand::thread_rng();
+        let mut rng = thread_rng();
 
         let block_count = self.width * self.height * self.depth;
         for i in 0..block_count {
@@ -87,5 +89,9 @@ impl Chunk {
 
     pub fn depth(&self) -> u32 {
         self.depth
+    }
+
+    pub fn world_height(&self) -> u32 {
+        self.world_height
     }
 }

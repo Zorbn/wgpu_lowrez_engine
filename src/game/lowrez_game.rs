@@ -157,21 +157,21 @@ impl game::Game for LowRezGame {
             None,
         );
         let v_camera = handle.create_camera(
-            (0.0, 0.0, 2.0).into(),
+            (0.0, 8.0, 4.0).into(),
             (0.0, 0.0, 0.0).into(),
             cgmath::Vector3::unit_y(),
-            // Box::new(camera::OrthographicProjection {
-            //     width: 1.0,
-            //     height: 1.0,
-            //     fixed_aspect_ratio: true,
-            //     z_near: 0.1,
-            //     z_far: 100.0,
-            // }),
-            Box::new(camera::PerspectiveProjection {
-                fov_y: 45.0,
+            Box::new(camera::OrthographicProjection {
+                width: 8.0,
+                height: 8.0,
+                fixed_aspect_ratio: true,
                 z_near: 0.1,
                 z_far: 100.0,
             }),
+            // Box::new(camera::PerspectiveProjection {
+            //     fov_y: 45.0,
+            //     z_near: 0.1,
+            //     z_far: 100.0,
+            // }),
             Some(SCREEN_SIZE),
             Some(SCREEN_SIZE),
         );
@@ -190,7 +190,7 @@ impl game::Game for LowRezGame {
             Some("render_texture"),
         );
 
-        let mut chunk = blocks::Chunk::new(8, 8, 8);
+        let mut chunk = blocks::Chunk::new(8, 2, 8, 2);
         chunk.generate();
 
         let chunk_model_data = mesh_generator::generate_mesh_data(&chunk);
@@ -236,7 +236,31 @@ impl game::Game for LowRezGame {
             let camera = handle.get_camera(state.v_camera);
 
             if state.fixed_update_count % 2 == 0 {
-                camera.pan(input, 1.0 / 64.0);
+                use winit::event::VirtualKeyCode;
+
+                let mut dir_x = 0;
+                let mut dir_z = 0;
+
+                if input.is_key_held(VirtualKeyCode::Left) {
+                    dir_x = -1;
+                }
+
+                if input.is_key_held(VirtualKeyCode::Right) {
+                    dir_x = 1;
+                }
+
+                if input.is_key_held(VirtualKeyCode::Down) {
+                    dir_z = 1;
+                }
+
+                if input.is_key_held(VirtualKeyCode::Up) {
+                    dir_z = -1;
+                }
+
+                let speed_x = 8.0 / 64.0;
+                let speed_z = 8.0 / 64.0;
+
+                camera.pan(dir_x as f32 * speed_x, 0.0, dir_z as f32 * speed_z);
             }
         }
     }

@@ -10,5 +10,10 @@ pub trait Game {
     );
     fn fixed_update(&mut self, input: &input::Input, handle: &mut engine_handle::EngineHandle);
     fn render(&mut self, handle: &mut render_handle::RenderHandle);
-    fn get_fixed_update_rate(&self) -> u32;
+    fn get_fixed_update_rate(&self) -> u32 {
+        60
+    }
+    fn get_name(&self) -> String {
+        "Game".into()
+    }
 }
