@@ -7,6 +7,7 @@ mod pipeline;
 pub mod render_handle;
 mod state;
 pub mod texture;
+pub mod texture_array;
 pub mod vertex;
 
 use std::time::Instant;

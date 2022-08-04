@@ -1,6 +1,4 @@
-use crate::engine::{
-    camera, engine_handle, game, input, model, render_handle, texture,
-};
+use crate::engine::{camera, engine_handle, game, input, render_handle};
 
 macro_rules! engine_handle {
     ($sel:ident) => {{
@@ -12,9 +10,7 @@ macro_rules! engine_handle {
             ..
         } = $sel;
 
-        let handle = engine_handle::EngineHandle::new(
-            device, queue, config, cameras,
-        );
+        let handle = engine_handle::EngineHandle::new(device, queue, config, cameras);
         handle
     }};
 }
@@ -49,7 +45,7 @@ impl State {
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::empty(),
+                    features: wgpu::Features::TEXTURE_BINDING_ARRAY | wgpu::Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
                     limits: wgpu::Limits::default(),
                     label: None,
                 },
@@ -77,9 +73,6 @@ impl State {
             input_handler: input::Input::new(),
             fixed_input_handler: input::Input::new(),
             cameras: Vec::new(),
-            models: Vec::new(),
-            textures: Vec::new(),
-            pipelines: Vec::new(),
         }
     }
 
@@ -160,7 +153,8 @@ impl State {
                 label: Some("Render Encoder"),
             });
 
-        let mut render_handle = render_handle::RenderHandle::new(&mut self.cameras, &view, &mut encoder);
+        let mut render_handle =
+            render_handle::RenderHandle::new(&mut self.cameras, &view, &mut encoder);
 
         self.game.render(&mut render_handle);
 

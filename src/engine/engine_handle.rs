@@ -1,4 +1,4 @@
-use crate::engine::{camera, model, pipeline, texture, vertex};
+use crate::engine::{camera, model, pipeline, texture, texture_array, vertex};
 
 pub struct EngineHandle<'a> {
     device: &'a mut wgpu::Device,
@@ -60,11 +60,7 @@ impl<'a> EngineHandle<'a> {
         camera::CameraHandle(new_cam_index)
     }
 
-    pub fn create_model(
-        &mut self,
-        vertices: &[vertex::Vertex],
-        indices: &[u16],
-    ) -> model::Model {
+    pub fn create_model(&mut self, vertices: &[vertex::Vertex], indices: &[u16]) -> model::Model {
         model::Model::new(self.device, vertices, indices)
     }
 
@@ -76,21 +72,22 @@ impl<'a> EngineHandle<'a> {
         extra_usages: wgpu::TextureUsages,
         label: Option<&str>,
     ) -> texture::Texture {
-        texture::Texture::from_dimensions(
-            self.device,
-            width,
-            height,
-            format,
-            extra_usages,
-            label,
-        )
-        .expect(&format!(
-            "Failed to create texture with label: {}",
-            match label {
-                Some(l) => l,
-                _ => "[no label]",
-            }
-        ))
+        texture::Texture::from_dimensions(self.device, width, height, format, extra_usages, label)
+            .expect(&format!(
+                "Failed to create texture with label: {}",
+                match label {
+                    Some(l) => l,
+                    _ => "[no label]",
+                }
+            ))
+    }
+
+    pub fn create_texture_array(
+        &mut self,
+        textures: Vec<texture::Texture>,
+    ) -> texture_array::TextureArray {
+        texture_array::TextureArray::new(self.device, textures)
+            .expect("Failed to create texture array")
     }
 
     pub fn create_pipeline(

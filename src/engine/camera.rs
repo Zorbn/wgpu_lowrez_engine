@@ -121,6 +121,7 @@ impl Camera {
 
     pub fn pan(&mut self, input: &input::Input, speed: f32) {
         let mut dir_x = 0;
+        let mut dir_y = 0;
 
         if input.is_key_held(VirtualKeyCode::Left) {
             dir_x = -1;
@@ -130,8 +131,17 @@ impl Camera {
             dir_x = 1;
         }
 
+        if input.is_key_held(VirtualKeyCode::Down) {
+            dir_y = -1;
+        }
+
+        if input.is_key_held(VirtualKeyCode::Up) {
+            dir_y = 1;
+        }
+
         self.viewpoint.pos.x += dir_x as f32 * speed;
-        self.viewpoint.target.x += dir_x as f32 * speed;
+        self.viewpoint.pos.y += dir_y as f32 * speed;
+        //self.viewpoint.target.x += dir_x as f32 * speed;
     }
 
     pub fn buffer(&self) -> &wgpu::Buffer {
