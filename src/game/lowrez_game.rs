@@ -1,7 +1,7 @@
 use crate::engine::{
     camera, engine_handle, game, input, model, render_handle, texture, texture_array, vertex,
 };
-use crate::game::voxels;
+use crate::game::voxels::{blocks, mesh_generator};
 
 const VERTICES: &[vertex::Vertex] = &[
     vertex::Vertex {
@@ -67,7 +67,7 @@ const SCREEN_VERTICES: &[vertex::Vertex] = &[
 
 const SCREEN_INDICES: &[u16] = &[0, 1, 2, 0, 2, 3];
 
-const SCREEN_SIZE: u32 = 64;
+const SCREEN_SIZE: u32 = 640;
 
 pub struct LowRezGameState {
     fixed_update_count: u32,
@@ -77,6 +77,7 @@ pub struct LowRezGameState {
     render_texture: texture::Texture,
     tree_model: model::Model,
     screen_model: model::Model,
+    chunk_model: model::Model,
     screen_pipeline: wgpu::RenderPipeline,
     pipeline: wgpu::RenderPipeline,
 }
@@ -108,12 +109,12 @@ impl LowRezGame {
         render_pass.set_pipeline(&state.pipeline);
         render_pass.set_bind_group(0, state.tree_textures.bind_group(), &[]);
         render_pass.set_bind_group(1, camera.bind_group(), &[]);
-        render_pass.set_vertex_buffer(0, state.tree_model.vertices().slice(..));
+        render_pass.set_vertex_buffer(0, state.chunk_model.vertices().slice(..));
         render_pass.set_index_buffer(
-            state.tree_model.indices().slice(..),
+            state.chunk_model.indices().slice(..),
             wgpu::IndexFormat::Uint16,
         );
-        render_pass.draw_indexed(0..state.tree_model.num_indices(), 0, 0..1);
+        render_pass.draw_indexed(0..state.chunk_model.num_indices(), 0, 0..1);
     }
 
     fn render_screen(state: &LowRezGameState, handle: &mut render_handle::RenderHandle) {
@@ -189,6 +190,15 @@ impl game::Game for LowRezGame {
             Some("render_texture"),
         );
 
+        let mut chunk = blocks::Chunk::new(8, 8, 8);
+        chunk.generate();
+
+        let chunk_model_data = mesh_generator::generate_mesh_data(&chunk);
+        let chunk_model = handle.create_model(
+            chunk_model_data.vertices.as_slice(),
+            chunk_model_data.indices.as_slice(),
+        );
+
         self.state = Some(LowRezGameState {
             fixed_update_count: 0,
             camera,
@@ -203,15 +213,11 @@ impl game::Game for LowRezGame {
                 &[tree_textures.bind_group_layout()],
                 Some(camera),
             ),
-            tree_model: handle.create_model(
-                &voxels::cube_mesh::MESH_SIDES[voxels::cube_mesh::Directions::Forward as usize]
-                    .vertices,
-                &voxels::cube_mesh::MESH_SIDES[voxels::cube_mesh::Directions::Forward as usize]
-                    .indices,
-            ),
+            tree_model: handle.create_model(VERTICES, INDICES),
             screen_model: handle.create_model(SCREEN_VERTICES, SCREEN_INDICES),
             tree_textures,
             render_texture,
+            chunk_model,
         });
     }
 
