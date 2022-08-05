@@ -1,7 +1,6 @@
-use crate::game::voxels::blocks::Blocks;
 use crate::{
     engine::vertex,
-    game::voxels::{blocks, cube_mesh},
+    game::voxels::{chunk, blocks, cube_mesh, directions},
 };
 
 const MIN_BLOCK_TINT_BRIGHTNESS: f32 = 0.1;
@@ -11,7 +10,7 @@ pub struct MeshData {
     pub indices: Vec<u16>,
 }
 
-pub fn generate_mesh_data(chunk: &blocks::Chunk) -> MeshData {
+pub fn generate_mesh_data(chunk: &chunk::Chunk) -> MeshData {
     let num_blocks = chunk.width() * chunk.height() * chunk.depth();
     let mut mesh_data = MeshData {
         vertices: Vec::new(),
@@ -19,35 +18,35 @@ pub fn generate_mesh_data(chunk: &blocks::Chunk) -> MeshData {
     };
 
     for i in 0..num_blocks {
-        let (x, y, z) = blocks::Chunk::get_block_xyz(chunk.width(), chunk.height(), i as usize);
+        let (x, y, z) = chunk::Chunk::get_block_xyz(chunk.width(), chunk.height(), i as usize);
         generate_block(chunk, &mut mesh_data, x, y, z);
     }
 
     mesh_data
 }
 
-fn generate_block(chunk: &blocks::Chunk, mesh_data: &mut MeshData, x: i32, y: i32, z: i32) {
+fn generate_block(chunk: &chunk::Chunk, mesh_data: &mut MeshData, x: i32, y: i32, z: i32) {
     let block = chunk.get_block(x, y, z);
 
-    if block == Blocks::AIR {
+    if block == blocks::Blocks::AIR {
         return;
     }
 
-    generate_face(chunk, mesh_data, block, x, y, z, cube_mesh::Directions::Up);
-    generate_face(chunk, mesh_data, block, x, y, z, cube_mesh::Directions::Forward);
+    generate_face(chunk, mesh_data, block, x, y, z, directions::Directions::Up);
+    generate_face(chunk, mesh_data, block, x, y, z, directions::Directions::Forward);
 }
 
 fn generate_face(
-    chunk: &blocks::Chunk,
+    chunk: &chunk::Chunk,
     mesh_data: &mut MeshData,
-    block: Blocks,
+    block: blocks::Blocks,
     x: i32,
     y: i32,
     z: i32,
-    face: cube_mesh::Directions,
+    face: directions::Directions,
 ) {
-    let face_offset = cube_mesh::dir_to_offset(face);
-    if chunk.get_block(x + face_offset.0, y + face_offset.1, z + face_offset.2) != Blocks::AIR {
+    let face_offset = directions::dir_to_offset(face);
+    if chunk.get_block(x + face_offset.0, y + face_offset.1, z + face_offset.2) != blocks::Blocks::AIR {
         return;
     }
 

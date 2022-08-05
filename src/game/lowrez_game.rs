@@ -1,42 +1,7 @@
 use crate::engine::{
     camera, engine_handle, game, input, model, render_handle, texture, texture_array, vertex,
 };
-use crate::game::voxels::{blocks, mesh_generator};
-
-const VERTICES: &[vertex::Vertex] = &[
-    vertex::Vertex {
-        position: [-0.0868241, 0.49240386, 0.0],
-        tex_coords: [0.4131759, 0.00759614],
-        tex_index: 0,
-        color: [1.0, 1.0, 1.0],
-    },
-    vertex::Vertex {
-        position: [-0.49513406, 0.06958647, 0.0],
-        tex_coords: [0.0048659444, 0.43041354],
-        tex_index: 0,
-        color: [1.0, 1.0, 1.0],
-    },
-    vertex::Vertex {
-        position: [-0.21918549, -0.44939706, 0.0],
-        tex_coords: [0.28081453, 0.949397],
-        tex_index: 0,
-        color: [1.0, 1.0, 1.0],
-    },
-    vertex::Vertex {
-        position: [0.35966998, -0.3473291, 0.0],
-        tex_coords: [0.85967, 0.84732914],
-        tex_index: 0,
-        color: [1.0, 1.0, 1.0],
-    },
-    vertex::Vertex {
-        position: [0.44147372, 0.2347359, 0.0],
-        tex_coords: [0.9414737, 0.2652641],
-        tex_index: 0,
-        color: [1.0, 1.0, 1.0],
-    },
-];
-
-const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
+use crate::game::voxels::{chunk, mesh_generator};
 
 const SCREEN_VERTICES: &[vertex::Vertex] = &[
     vertex::Vertex {
@@ -67,15 +32,14 @@ const SCREEN_VERTICES: &[vertex::Vertex] = &[
 
 const SCREEN_INDICES: &[u16] = &[0, 1, 2, 0, 2, 3];
 
-const SCREEN_SIZE: u32 = 640;
+const SCREEN_SIZE: u32 = 64;
 
 pub struct LowRezGameState {
     fixed_update_count: u32,
     camera: camera::CameraHandle,
     v_camera: camera::CameraHandle,
-    tree_textures: texture_array::TextureArray,
+    block_tex_array: texture_array::TextureArray,
     render_texture: texture::Texture,
-    tree_model: model::Model,
     screen_model: model::Model,
     chunk_model: model::Model,
     screen_pipeline: wgpu::RenderPipeline,
@@ -107,7 +71,7 @@ impl LowRezGame {
             Some(&state.render_texture),
         );
         render_pass.set_pipeline(&state.pipeline);
-        render_pass.set_bind_group(0, state.tree_textures.bind_group(), &[]);
+        render_pass.set_bind_group(0, state.block_tex_array.bind_group(), &[]);
         render_pass.set_bind_group(1, camera.bind_group(), &[]);
         render_pass.set_vertex_buffer(0, state.chunk_model.vertices().slice(..));
         render_pass.set_index_buffer(
@@ -156,9 +120,12 @@ impl game::Game for LowRezGame {
             None,
             None,
         );
+
+        let cam_start_offset = (3.5, 4.25);
+
         let v_camera = handle.create_camera(
-            (0.0, 8.0, 4.0).into(),
-            (0.0, 0.0, 0.0).into(),
+            (cam_start_offset.0, 8.0, 4.0 + cam_start_offset.1).into(),
+            (cam_start_offset.0, 0.0, cam_start_offset.1).into(),
             cgmath::Vector3::unit_y(),
             Box::new(camera::OrthographicProjection {
                 width: 8.0,
@@ -167,20 +134,17 @@ impl game::Game for LowRezGame {
                 z_near: 0.1,
                 z_far: 100.0,
             }),
-            // Box::new(camera::PerspectiveProjection {
-            //     fov_y: 45.0,
-            //     z_near: 0.1,
-            //     z_far: 100.0,
-            // }),
             Some(SCREEN_SIZE),
             Some(SCREEN_SIZE),
         );
 
-        // let diffuse_texture = handle.load_texture("happy-tree.png");
-        let happy_tree = handle.load_texture("happy-tree.png");
-        let sad_tree = handle.load_texture("sad-tree.png");
+        let block_textures = vec![
+            handle.load_texture("grass.png"),
+            handle.load_texture("dirt.png"),
+            handle.load_texture("obsidian.png"),
+        ];
 
-        let tree_textures = handle.create_texture_array(vec![happy_tree, sad_tree]);
+        let block_tex_array = handle.create_texture_array(block_textures);
 
         let render_texture = handle.create_texture(
             SCREEN_SIZE,
@@ -190,8 +154,8 @@ impl game::Game for LowRezGame {
             Some("render_texture"),
         );
 
-        let mut chunk = blocks::Chunk::new(8, 2, 8, 2);
-        chunk.generate();
+        let mut chunk = chunk::Chunk::new(8, 2, 11, 2);
+        chunk.generate(&mut rand::thread_rng());
 
         let chunk_model_data = mesh_generator::generate_mesh_data(&chunk);
         let chunk_model = handle.create_model(
@@ -210,23 +174,14 @@ impl game::Game for LowRezGame {
             ),
             pipeline: handle.create_pipeline(
                 "shader.wgsl",
-                &[tree_textures.bind_group_layout()],
+                &[block_tex_array.bind_group_layout()],
                 Some(camera),
             ),
-            tree_model: handle.create_model(VERTICES, INDICES),
             screen_model: handle.create_model(SCREEN_VERTICES, SCREEN_INDICES),
-            tree_textures,
+            block_tex_array,
             render_texture,
             chunk_model,
         });
-    }
-
-    fn update(
-        &mut self,
-        input: &input::Input,
-        handle: &mut engine_handle::EngineHandle,
-        delta_time: f32,
-    ) {
     }
 
     fn fixed_update(&mut self, input: &input::Input, handle: &mut engine_handle::EngineHandle) {
@@ -239,7 +194,6 @@ impl game::Game for LowRezGame {
                 use winit::event::VirtualKeyCode;
 
                 let mut dir_x = 0;
-                let mut dir_z = 0;
 
                 if input.is_key_held(VirtualKeyCode::Left) {
                     dir_x = -1;
@@ -249,18 +203,9 @@ impl game::Game for LowRezGame {
                     dir_x = 1;
                 }
 
-                if input.is_key_held(VirtualKeyCode::Down) {
-                    dir_z = 1;
-                }
+                let speed = 8.0 / 64.0;
 
-                if input.is_key_held(VirtualKeyCode::Up) {
-                    dir_z = -1;
-                }
-
-                let speed_x = 8.0 / 64.0;
-                let speed_z = 8.0 / 64.0;
-
-                camera.pan(dir_x as f32 * speed_x, 0.0, dir_z as f32 * speed_z);
+                camera.pan(dir_x as f32 * speed, 0.0, 0.0);
             }
         }
     }

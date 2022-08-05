@@ -1,4 +1,4 @@
-use anyhow::*;
+use std::io;
 use image::GenericImageView;
 
 pub struct Texture {
@@ -57,7 +57,7 @@ impl Texture {
         }
     }
 
-    pub fn from_path(device: &wgpu::Device, queue: &wgpu::Queue, res_path: &str) -> Result<Self> {
+    pub fn from_path(device: &wgpu::Device, queue: &wgpu::Queue, res_path: &str) -> Result<Self, io::Error> {
         let full_path = format!("res/{}", res_path);
         let bytes = std::fs::read(full_path)?;
         Self::from_bytes(&device, &queue, &bytes, res_path)
@@ -68,8 +68,8 @@ impl Texture {
         queue: &wgpu::Queue,
         bytes: &[u8],
         label: &str,
-    ) -> Result<Self> {
-        let img = image::load_from_memory(bytes)?;
+    ) -> Result<Self, io::Error> {
+        let img = image::load_from_memory(bytes).expect("Couldn't load image from bytes");
         Self::from_image(device, queue, &img, Some(label))
     }
 
@@ -78,7 +78,7 @@ impl Texture {
         queue: &wgpu::Queue,
         img: &image::DynamicImage,
         label: Option<&str>,
-    ) -> Result<Self> {
+    ) -> Result<Self, io::Error> {
         let rgba = img.to_rgba8();
         let dimensions = img.dimensions();
 
@@ -123,7 +123,7 @@ impl Texture {
         format: wgpu::TextureFormat,
         extra_usages: wgpu::TextureUsages,
         label: Option<&str>,
-    ) -> Result<Self> {
+    ) -> Result<Self, io::Error> {
         let size = wgpu::Extent3d {
             width,
             height,
