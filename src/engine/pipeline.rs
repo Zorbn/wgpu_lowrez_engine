@@ -1,4 +1,4 @@
-use crate::engine::{texture, vertex};
+use crate::engine::{instance, texture, vertex};
 
 pub fn create_pipeline(
     device: &wgpu::Device,
@@ -30,14 +30,14 @@ pub fn create_pipeline(
         vertex: wgpu::VertexState {
             module: &shader,
             entry_point: "vs_main",
-            buffers: &[vertex::Vertex::desc()],
+            buffers: &[vertex::Vertex::desc(), instance::InstanceRaw::desc()],
         },
         fragment: Some(wgpu::FragmentState {
             module: &shader,
             entry_point: "fs_main",
             targets: &[Some(wgpu::ColorTargetState {
                 format,
-                blend: Some(wgpu::BlendState::REPLACE),
+                blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                 write_mask: wgpu::ColorWrites::ALL,
             })],
         }),

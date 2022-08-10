@@ -1,5 +1,5 @@
-use std::io;
 use image::GenericImageView;
+use std::io;
 
 pub struct Texture {
     texture: wgpu::Texture,
@@ -57,7 +57,11 @@ impl Texture {
         }
     }
 
-    pub fn from_path(device: &wgpu::Device, queue: &wgpu::Queue, res_path: &str) -> Result<Self, io::Error> {
+    pub fn from_path(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        res_path: &str,
+    ) -> Result<Self, io::Error> {
         let full_path = format!("res/{}", res_path);
         let bytes = std::fs::read(full_path)?;
         Self::from_bytes(&device, &queue, &bytes, res_path)

@@ -1,6 +1,6 @@
 use crate::{
     engine::vertex,
-    game::voxels::{chunk, blocks, cube_mesh, directions},
+    game::voxels::{blocks, chunk, cube_mesh, directions},
 };
 
 const MIN_BLOCK_TINT_BRIGHTNESS: f32 = 0.1;
@@ -33,7 +33,15 @@ fn generate_block(chunk: &chunk::Chunk, mesh_data: &mut MeshData, x: i32, y: i32
     }
 
     generate_face(chunk, mesh_data, block, x, y, z, directions::Directions::Up);
-    generate_face(chunk, mesh_data, block, x, y, z, directions::Directions::Forward);
+    generate_face(
+        chunk,
+        mesh_data,
+        block,
+        x,
+        y,
+        z,
+        directions::Directions::Forward,
+    );
 }
 
 fn generate_face(
@@ -46,7 +54,9 @@ fn generate_face(
     face: directions::Directions,
 ) {
     let face_offset = directions::dir_to_offset(face);
-    if chunk.get_block(x + face_offset.0, y + face_offset.1, z + face_offset.2) != blocks::Blocks::AIR {
+    if chunk.get_block(x + face_offset.0, y + face_offset.1, z + face_offset.2)
+        != blocks::Blocks::AIR
+    {
         return;
     }
 
@@ -62,7 +72,9 @@ fn generate_face(
         new_vertex.position[2] += z as f32;
         new_vertex.tex_index = texture_index;
 
-        let tint = (new_vertex.position[1] / chunk.world_height() as f32 + MIN_BLOCK_TINT_BRIGHTNESS).min(1.0);
+        let tint = (new_vertex.position[1] / chunk.world_height() as f32
+            + MIN_BLOCK_TINT_BRIGHTNESS)
+            .min(1.0);
 
         for c in 0..3 {
             new_vertex.color[c] *= tint;

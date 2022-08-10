@@ -1,9 +1,9 @@
 use crate::engine::texture;
-use cgmath::Matrix4;
+use cgmath::prelude::*;
 use wgpu::util::DeviceExt;
 
 #[rustfmt::skip]
-pub const OPENGL_TO_WGPU_MATRIX: Matrix4<f32> = Matrix4::new(
+pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     1.0, 0.0, 0.0, 0.0,
     0.0, 1.0, 0.0, 0.0,
     0.0, 0.0, 0.5, 0.0,
@@ -27,8 +27,8 @@ pub struct Camera {
 impl Camera {
     pub fn new(
         device: &wgpu::Device,
-        pos: cgmath::Point3<f32>,
-        target: cgmath::Point3<f32>,
+        pos: cgmath::Vector3<f32>,
+        target: cgmath::Vector3<f32>,
         up: cgmath::Vector3<f32>,
         projection: Box<dyn Projection>,
         screen_width: u32,
@@ -145,22 +145,26 @@ impl Camera {
 }
 
 pub struct ViewPoint {
-    pub pos: cgmath::Point3<f32>,
-    pub target: cgmath::Point3<f32>,
+    pub pos: cgmath::Vector3<f32>,
+    pub target: cgmath::Vector3<f32>,
     pub up: cgmath::Vector3<f32>,
     pub projection: Box<dyn Projection>,
 }
 
 impl ViewPoint {
-    fn build_view_projection_matrix(&self, aspect: f32) -> Matrix4<f32> {
-        let view = Matrix4::look_at_rh(self.pos, self.target, self.up);
+    fn build_view_projection_matrix(&self, aspect: f32) -> cgmath::Matrix4<f32> {
+        let view = cgmath::Matrix4::look_at_rh(
+            cgmath::Point3::<f32>::from_vec(self.pos),
+            cgmath::Point3::<f32>::from_vec(self.target),
+            self.up,
+        );
 
         OPENGL_TO_WGPU_MATRIX * self.projection.to_matrix(aspect) * view
     }
 }
 
 pub trait Projection {
-    fn to_matrix(&self, aspect: f32) -> Matrix4<f32>;
+    fn to_matrix(&self, aspect: f32) -> cgmath::Matrix4<f32>;
 }
 
 pub struct PerspectiveProjection {
@@ -170,7 +174,7 @@ pub struct PerspectiveProjection {
 }
 
 impl Projection for PerspectiveProjection {
-    fn to_matrix(&self, aspect: f32) -> Matrix4<f32> {
+    fn to_matrix(&self, aspect: f32) -> cgmath::Matrix4<f32> {
         cgmath::perspective(cgmath::Deg(self.fov_y), aspect, self.z_near, self.z_far)
     }
 }
@@ -184,7 +188,7 @@ pub struct OrthographicProjection {
 }
 
 impl Projection for OrthographicProjection {
-    fn to_matrix(&self, aspect: f32) -> Matrix4<f32> {
+    fn to_matrix(&self, aspect: f32) -> cgmath::Matrix4<f32> {
         let width_multiplier = if self.fixed_aspect_ratio || aspect < 1.0 {
             1.0
         } else {

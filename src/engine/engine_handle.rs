@@ -1,4 +1,5 @@
-use crate::engine::{camera, model, pipeline, texture, texture_array, vertex};
+use crate::engine::{camera, instance, model, pipeline, texture, texture_array, vertex};
+use wgpu::util::DeviceExt;
 
 pub struct EngineHandle<'a> {
     device: &'a mut wgpu::Device,
@@ -24,8 +25,8 @@ impl<'a> EngineHandle<'a> {
 
     pub fn create_camera(
         &mut self,
-        pos: cgmath::Point3<f32>,
-        target: cgmath::Point3<f32>,
+        pos: cgmath::Vector3<f32>,
+        target: cgmath::Vector3<f32>,
         up: cgmath::Vector3<f32>,
         projection: Box<dyn camera::Projection>,
         set_width: Option<u32>,
@@ -88,6 +89,32 @@ impl<'a> EngineHandle<'a> {
     ) -> texture_array::TextureArray {
         texture_array::TextureArray::new(self.device, textures)
             .expect("Failed to create texture array")
+    }
+
+    pub fn create_instance_buffer<T: AsRef<instance::Instance>>(&mut self, instances: &Vec<T>) -> wgpu::Buffer {
+        let raw_instances = instances
+            .iter()
+            .map(|i| i.as_ref().to_raw())
+            .collect::<Vec<_>>();
+
+        self.device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Instance Buffer"),
+                contents: bytemuck::cast_slice(&raw_instances),
+                usage: wgpu::BufferUsages::VERTEX,
+            })
+    }
+
+    pub fn create_instance_buffer_from_raw(
+        &mut self,
+        instances: &Vec<instance::InstanceRaw>,
+    ) -> wgpu::Buffer {
+        self.device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Instance Buffer"),
+                contents: bytemuck::cast_slice(instances),
+                usage: wgpu::BufferUsages::VERTEX,
+            })
     }
 
     pub fn create_pipeline(

@@ -1,5 +1,5 @@
 pub mod blocks;
-mod cube_mesh;
-pub mod mesh_generator;
 pub mod chunk;
+mod cube_mesh;
 pub mod directions;
+pub mod mesh_generator;

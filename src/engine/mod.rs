@@ -2,6 +2,7 @@ pub mod camera;
 pub mod engine_handle;
 pub mod game;
 pub mod input;
+pub mod instance;
 pub mod model;
 mod pipeline;
 pub mod render_handle;
@@ -25,7 +26,10 @@ pub fn start_game(game: Box<dyn game::Game>) {
 async fn run(game: Box<dyn game::Game>) {
     env_logger::init();
     let event_loop = EventLoop::new();
-    let window = WindowBuilder::new().with_title(game.get_name()).build(&event_loop).unwrap();
+    let window = WindowBuilder::new()
+        .with_title(game.get_name())
+        .build(&event_loop)
+        .unwrap();
     window.set_outer_position(get_new_window_position(&window));
 
     let fixed_update_rate = game.get_fixed_update_rate();
