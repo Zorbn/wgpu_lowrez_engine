@@ -15,6 +15,6 @@ pub trait Game {
         60
     }
     fn get_name(&self) -> String {
-        "Game".into()
+        "LowRezJam 2022".into()
     }
 }

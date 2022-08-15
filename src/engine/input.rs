@@ -31,8 +31,9 @@ impl Input {
     pub fn key_state_changed(&mut self, keycode: VirtualKeyCode, state: ElementState) {
         match state {
             ElementState::Pressed => {
-                self.pressed_keys.insert(keycode);
-                self.held_keys.insert(keycode);
+                if self.held_keys.insert(keycode) {
+                    self.pressed_keys.insert(keycode);
+                }
             }
             ElementState::Released => {
                 self.released_keys.insert(keycode);
