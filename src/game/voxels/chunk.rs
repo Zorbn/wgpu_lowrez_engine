@@ -1,8 +1,6 @@
+use crate::game::horizontal_point::HorizontalPoint;
+use crate::game::{entity, voxels::blocks};
 use rand::prelude::*;
-use crate::game::{
-    voxels::blocks,
-    entity,
-};
 
 pub struct Chunk {
     width: u32,
@@ -10,7 +8,6 @@ pub struct Chunk {
     depth: u32,
     world_height: u32,
     blocks: Vec<blocks::Blocks>,
-    pub entities: Vec<entity::Entity>,
 }
 
 impl Chunk {
@@ -21,12 +18,19 @@ impl Chunk {
             depth,
             world_height,
             blocks: vec![blocks::Blocks::AIR; (width * height * depth) as usize],
-            entities: Vec::new(),
         }
     }
 
-    pub fn generate(&mut self, rng: &mut ThreadRng, spawn_chunk: bool, world_x: i32) {
-        self.entities.clear();
+    pub fn generate(
+        &mut self,
+        rng: &mut ThreadRng,
+        spawn_chunk: bool,
+        world_x: i32,
+        entities: &mut Vec<entity::Entity>,
+        entity_dirs: &mut Vec<i32>,
+    ) {
+        entities.clear();
+        entity_dirs.clear();
 
         let blocks_len = self.width * self.height * self.depth;
         let lower_border_z = 0;
@@ -53,9 +57,10 @@ impl Chunk {
             }
             .expect("Failed to pick a block while generating");
 
-            if *block == blocks::Blocks::AIR && rng.gen_range(0..6) == 0 {
+            if !spawn_chunk && *block == blocks::Blocks::AIR && rng.gen_range(0..6) == 0 {
                 let enemy = entity::Entity::new((x + world_x) as f32, z as f32, 1);
-                self.entities.push(enemy);
+                entities.push(enemy);
+                entity_dirs.push(1);
             }
 
             self.set_block(*block, x, y, z);

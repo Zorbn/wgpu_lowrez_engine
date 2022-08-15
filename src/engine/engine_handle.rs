@@ -91,7 +91,10 @@ impl<'a> EngineHandle<'a> {
             .expect("Failed to create texture array")
     }
 
-    pub fn create_instance_buffer<T: AsRef<instance::Instance>>(&mut self, instances: &Vec<T>) -> wgpu::Buffer {
+    pub fn create_instance_buffer<T: AsRef<instance::Instance>>(
+        &mut self,
+        instances: &Vec<T>,
+    ) -> wgpu::Buffer {
         let raw_instances = instances
             .iter()
             .map(|i| i.as_ref().to_raw())

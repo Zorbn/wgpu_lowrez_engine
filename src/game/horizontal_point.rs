@@ -1,3 +1,4 @@
+#[derive(Copy, Clone)]
 pub struct HorizontalPoint<T> {
     pub x: T,
     pub z: T,

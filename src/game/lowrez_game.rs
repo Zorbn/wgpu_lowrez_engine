@@ -2,17 +2,12 @@ use crate::engine::{
     camera, engine_handle, game, input, instance, model, render_handle, texture, texture_array,
     vertex,
 };
+use crate::game::voxels::blocks;
 use crate::game::{
     entity,
     voxels::{chunk, mesh_generator},
 };
 use cgmath::prelude::*;
-
-/* TODO:
- * Enemies that move back and forth
- * Start screen and restart caused by touching an enemy
- * Shooting
- */
 
 const SCREEN_VERTICES: &[vertex::Vertex] = &[
     vertex::Vertex {
@@ -101,7 +96,9 @@ pub struct LowRezGameState {
     chunk_models: Vec<model::Model>,
     chunk_instances: Vec<instance::Instance>,
     chunk_instance_buffers: Vec<wgpu::Buffer>,
-    // chunk_entity_instance_buffers: Vec<wgpu::Buffer>,
+    chunk_entities: Vec<Vec<entity::Entity>>,
+    chunk_entity_dirs: Vec<Vec<i32>>,
+    pan_distance: f32,
 }
 
 pub struct LowRezGame {
@@ -147,20 +144,14 @@ impl LowRezGame {
         render_pass.set_bind_group(1, camera.bind_group(), &[]);
         render_pass.set_vertex_buffer(0, state.sprite_model.vertices().slice(..));
         render_pass.set_index_buffer(
-        state.sprite_model.indices().slice(..),
-        wgpu::IndexFormat::Uint16,
+            state.sprite_model.indices().slice(..),
+            wgpu::IndexFormat::Uint16,
         );
 
-        // for i in 0..state.chunks.len() {
-        //     let buf = &state.chunk_entity_instance_buffers[i];
-        //     let instance_count = state.chunks[i].entities.len() as u32;
-        //
-        //     render_pass.set_vertex_buffer(1, buf.slice(..));
-        //     render_pass.draw_indexed(0..state.screen_model.num_indices(), 0, 0..instance_count);
-        // }
-
         assert_eq!(state.chunks.len(), 2);
-        let num_entities = (state.entities.len() + state.chunks[0].entities.len() + state.chunks[1].entities.len()) as u32;
+        let num_entities = (state.entities.len()
+            + state.chunk_entities[0].len()
+            + state.chunk_entities[1].len()) as u32;
         render_pass.set_vertex_buffer(1, state.entity_instance_buffer.slice(..));
         render_pass.draw_indexed(0..state.screen_model.num_indices(), 0, 0..num_entities);
     }
@@ -211,22 +202,32 @@ impl LowRezGame {
         models
     }
 
-    fn update_chunk_instance_buffers(chunk_instances: &Vec<instance::Instance>, handle: &mut engine_handle::EngineHandle) -> Vec<wgpu::Buffer> {
-        chunk_instances.iter().map(|i| handle.create_instance_buffer(&vec![i])).collect()
+    fn create_chunk_instance_buffers(
+        chunk_instances: &Vec<instance::Instance>,
+        handle: &mut engine_handle::EngineHandle,
+    ) -> Vec<wgpu::Buffer> {
+        chunk_instances
+            .iter()
+            .map(|i| handle.create_instance_buffer(&vec![i]))
+            .collect()
     }
 
-    fn update_chunk_entity_instance_buffers(chunks: &[chunk::Chunk], handle: &mut engine_handle::EngineHandle) -> Vec<wgpu::Buffer> {
-        chunks.iter().map(|c| entity::Entity::create_instance_buffer(&c.entities, handle)).collect()
-    }
-
-    fn create_entity_instance_buffer(entities: &Vec<entity::Entity>, chunks: &[chunk::Chunk], handle: &mut engine_handle::EngineHandle) -> wgpu::Buffer {
+    fn create_entity_instance_buffer(
+        entities: &Vec<entity::Entity>,
+        chunks: &[chunk::Chunk; 2],
+        chunk_entities: &Vec<Vec<entity::Entity>>,
+        handle: &mut engine_handle::EngineHandle,
+    ) -> wgpu::Buffer {
         let mut raw_entities = std::collections::HashMap::new();
 
         fn hash_depth(depth: f32, x: f32) -> i32 {
             ((depth * 1000.0).floor() + (x / (SPRITE_HALF_WIDTH * 10.0)).round()) as i32
         }
 
-        fn add_raw_entities(entities: &Vec<entity::Entity>, raw_entities: &mut std::collections::HashMap<i32, instance::InstanceRaw>) {
+        fn add_raw_entities(
+            entities: &Vec<entity::Entity>,
+            raw_entities: &mut std::collections::HashMap<i32, instance::InstanceRaw>,
+        ) {
             for e in entities {
                 let mut z_off = 0.0;
 
@@ -234,14 +235,18 @@ impl LowRezGame {
                     z_off += 0.001;
                 }
 
-                raw_entities.insert(hash_depth(e.pos.z + z_off, e.pos.x), e.instance.to_raw_with_offset(cgmath::Vector3::new(0.0, 0.0, z_off)));
+                raw_entities.insert(
+                    hash_depth(e.pos.z + z_off, e.pos.x),
+                    e.instance
+                        .to_raw_with_offset(cgmath::Vector3::new(0.0, 0.0, z_off)),
+                );
             }
         }
 
         add_raw_entities(entities, &mut raw_entities);
 
-        for c in chunks {
-            add_raw_entities(&c.entities, &mut raw_entities);
+        for i in 0..chunks.len() {
+            add_raw_entities(&chunk_entities[i], &mut raw_entities);
         }
 
         let mut sorted_raw_entities = raw_entities.iter().collect::<Vec<_>>();
@@ -250,6 +255,17 @@ impl LowRezGame {
         let raw_instances = sorted_raw_entities.iter().map(|i| *i.1).collect::<Vec<_>>();
 
         handle.create_instance_buffer_from_raw(&raw_instances)
+    }
+
+    fn update_camera(v_camera_pos: &mut cgmath::Vector3<f32>, v_camera_target: &mut cgmath::Vector3<f32>, v_camera: camera::CameraHandle, handle: &mut engine_handle::EngineHandle, player_pos: cgmath::Vector3<f32>) {
+        *v_camera_pos = player_pos + CAM_OFFSET + CAM_POS_OFFSET;
+        *v_camera_target = player_pos + CAM_OFFSET;
+
+        let camera = handle.get_camera(v_camera);
+        camera.viewpoint.pos = *v_camera_pos;
+        camera.viewpoint.target = *v_camera_target;
+        camera.viewpoint.pos.x = Self::round_to_pixel(v_camera_pos.x);
+        camera.viewpoint.target.x = Self::round_to_pixel(v_camera_target.x);
     }
 }
 
@@ -299,6 +315,7 @@ impl game::Game for LowRezGame {
         let sprite_textures = vec![
             handle.load_texture("player.png"),
             handle.load_texture("octopus.png"),
+            handle.load_texture("acorn.png"),
         ];
 
         let sprite_tex_array = handle.create_texture_array(sprite_textures);
@@ -329,14 +346,31 @@ impl game::Game for LowRezGame {
             },
         ];
 
-        chunks[0].generate(&mut rand::thread_rng(), true, chunk_instances[0].position.x as i32);
-        chunks[1].generate(&mut rand::thread_rng(), false, chunk_instances[1].position.x as i32);
+        let mut chunk_entities: Vec<Vec<entity::Entity>> = Vec::<Vec<_>>::new();
+        chunk_entities.push(Vec::<entity::Entity>::new());
+        chunk_entities.push(Vec::<entity::Entity>::new());
+        let mut chunk_entity_dirs: Vec<Vec<i32>> = Vec::<Vec<_>>::new();
+        chunk_entity_dirs.push(Vec::<i32>::new());
+        chunk_entity_dirs.push(Vec::<i32>::new());
+
+        chunks[0].generate(
+            &mut rand::thread_rng(),
+            true,
+            chunk_instances[0].position.x as i32,
+            &mut chunk_entities[0],
+            &mut chunk_entity_dirs[0],
+        );
+        chunks[1].generate(
+            &mut rand::thread_rng(),
+            false,
+            chunk_instances[1].position.x as i32,
+            &mut chunk_entities[1],
+            &mut chunk_entity_dirs[1],
+        );
 
         let chunk_models = Self::create_chunk_models(&chunks, handle);
 
-        let chunk_instance_buffers = Self::update_chunk_instance_buffers(&chunk_instances, handle);
-
-        let chunk_entity_instance_buffers = Self::update_chunk_entity_instance_buffers(&chunks, handle);
+        let chunk_instance_buffers = Self::create_chunk_instance_buffers(&chunk_instances, handle);
 
         let screen_instances = vec![instance::Instance {
             position: cgmath::Vector3::new(0.0, 0.0, 0.0),
@@ -346,7 +380,8 @@ impl game::Game for LowRezGame {
         let screen_instance_buffer = handle.create_instance_buffer(&screen_instances);
 
         let entities = vec![entity::Entity::new(3.5, 4.5, 0)];
-        let entity_instance_buffer = Self::create_entity_instance_buffer(&entities, &chunks, handle);
+        let entity_instance_buffer =
+            Self::create_entity_instance_buffer(&entities, &chunks, &chunk_entities, handle);
 
         let screen_pipeline = handle.create_pipeline(
             "shader.wgsl",
@@ -369,6 +404,9 @@ impl game::Game for LowRezGame {
 
         self.state = Some(LowRezGameState {
             fixed_update_count: 0,
+            pan_distance: 0.0,
+            chunk_entities,
+            chunk_entity_dirs,
             camera,
             v_camera,
             v_camera_pos,
@@ -396,8 +434,6 @@ impl game::Game for LowRezGame {
             use winit::event::VirtualKeyCode;
 
             state.fixed_update_count = state.fixed_update_count.overflowing_add(1).0;
-
-            let camera = handle.get_camera(state.v_camera);
 
             let mut dir_x = 0;
             let mut dir_z = 0;
@@ -429,18 +465,144 @@ impl game::Game for LowRezGame {
 
             let player_pos_vec = cgmath::Vector3::new(state.entities[0].pos.x, 0.0, 0.0);
 
-            if player_pos_vec.x > state.v_camera_pos.x {
-                state.v_camera_pos = player_pos_vec + CAM_OFFSET + CAM_POS_OFFSET;
-                state.v_camera_target = player_pos_vec + CAM_OFFSET;
+            if player_pos_vec.x > state.v_camera_target.x {
+                state.pan_distance += move_x;
 
-                camera.viewpoint.pos = state.v_camera_pos;
-                camera.viewpoint.target = state.v_camera_target;
-                camera.viewpoint.pos.x = Self::round_to_pixel(state.v_camera_pos.x);
-                camera.viewpoint.target.x = Self::round_to_pixel(state.v_camera_target.x);
+                if state.pan_distance >= 8.0 {
+                    state.pan_distance = 0.0;
+                    let last_chunk_i = (((state.entities[0].pos.x as i32 >> 3) + 1) % 2) as usize;
+                    state.chunk_instances[last_chunk_i].position.x += 16.0;
+
+                    let LowRezGameState {
+                        chunks,
+                        chunk_entities,
+                        chunk_entity_dirs,
+                        ..
+                    } = state;
+                    chunks[last_chunk_i].generate(
+                        &mut rand::thread_rng(),
+                        false,
+                        state.chunk_instances[last_chunk_i].position.x as i32,
+                        &mut chunk_entities[last_chunk_i],
+                        &mut chunk_entity_dirs[last_chunk_i],
+                    );
+
+                    state.chunk_instance_buffers =
+                        Self::create_chunk_instance_buffers(&state.chunk_instances, handle);
+                    state.chunk_models = Self::create_chunk_models(&state.chunks, handle);
+                }
+
+                Self::update_camera(&mut state.v_camera_pos, &mut state.v_camera_target, state.v_camera, handle, player_pos_vec);
             }
 
-            // TODO: Remove chunk create instance and entity create instance buffer, use this instead
-            state.entity_instance_buffer = Self::create_entity_instance_buffer(&state.entities, &state.chunks, handle);
+            if input.was_key_pressed(VirtualKeyCode::Space) {
+                state.entities.push(entity::Entity::new(
+                    state.entities[0].pos.x,
+                    state.entities[0].pos.z,
+                    2,
+                ));
+            }
+
+            let LowRezGameState {
+                chunks,
+                chunk_entities,
+                chunk_entity_dirs,
+                ..
+            } = state;
+
+            // Check bullet collisions.
+            for i in (1..state.entities.len()).rev() {
+                if let Some(hit) =
+                    entity::Entity::check_entity_collisions(state.entities[i].pos, &chunk_entities)
+                {
+                    chunk_entities[hit.0].remove(hit.1);
+                    chunk_entity_dirs[hit.0].remove(hit.1);
+                    state.entities.remove(i);
+                    break;
+                }
+
+                if !state.entities[i].move_x(0.2, chunks) {
+                    let hit_block_x =
+                        (state.entities[i].pos.x + SPRITE_HALF_WIDTH * 2.0).floor() as i32;
+
+                    for hit_z_corner in 0..3 {
+                        let norm_hit_z_corner = (hit_z_corner - 1) as f32;
+                        let hit_block_z = (state.entities[i].pos.z
+                            + SPRITE_HALF_WIDTH + norm_hit_z_corner * entity::PADDED_SPRITE_WIDTH)
+                            .floor() as i32;
+                        let hit_chunk = ((hit_block_x >> 3) % 2) as usize;
+
+                        if chunks[hit_chunk].get_block(hit_block_x % 8, 1, hit_block_z)
+                            != blocks::Blocks::AIR
+                        {
+                            chunks[hit_chunk].set_block(
+                                blocks::Blocks::AIR,
+                                hit_block_x % 8,
+                                1,
+                                hit_block_z,
+                            );
+                            state.chunk_instance_buffers =
+                                Self::create_chunk_instance_buffers(&state.chunk_instances, handle);
+                            state.chunk_models = Self::create_chunk_models(chunks, handle);
+                            break;
+                        }
+                    }
+
+                    state.entities.remove(i);
+                } else {
+                    if state.entities[i].pos.x - 8.0 > state.entities[0].pos.x {
+                        state.entities.remove(i);
+                    }
+                }
+            }
+
+            for ci in 0..chunks.len() {
+                for i in 0..chunk_entities[ci].len() {
+                    if !chunk_entities[ci][i].move_z(chunk_entity_dirs[ci][i] as f32 * 0.1, chunks) {
+                        chunk_entity_dirs[ci][i] *= -1;
+                    }
+                }
+            }
+
+            // Check player collisions.
+            if let Some(_) = entity::Entity::check_entity_collisions(state.entities[0].pos, &chunk_entities) {
+                state.chunk_instances[0].position = cgmath::Vector3::new(0.0, 0.0, 0.0);
+                state.chunk_instances[1].position = cgmath::Vector3::new(8.0, 0.0, 0.0);
+
+                chunks[0].generate(
+                    &mut rand::thread_rng(),
+                    true,
+                    state.chunk_instances[0].position.x as i32,
+                    &mut chunk_entities[0],
+                    &mut chunk_entity_dirs[0],
+                );
+
+                chunks[1].generate(
+                    &mut rand::thread_rng(),
+                    false,
+                    state.chunk_instances[1].position.x as i32,
+                    &mut chunk_entities[1],
+                    &mut chunk_entity_dirs[1],
+                );
+
+                state.entities[0].pos.x = 3.5;
+                state.entities[0].pos.z = 4.5;
+                state.pan_distance = 0.0;
+
+                let player_pos_vec = cgmath::Vector3::new(state.entities[0].pos.x, 0.0, 0.0);
+                Self::update_camera(&mut state.v_camera_pos, &mut state.v_camera_target, state.v_camera, handle, player_pos_vec);
+
+                state.chunk_instance_buffers =
+                    Self::create_chunk_instance_buffers(&state.chunk_instances, handle);
+                state.chunk_models = Self::create_chunk_models(chunks, handle);
+            }
+
+            state.entity_instance_buffer = Self::create_entity_instance_buffer(
+                &state.entities,
+                &chunks,
+                &chunk_entities,
+                handle,
+            );
         }
     }
 

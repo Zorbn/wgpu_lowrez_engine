@@ -15,7 +15,7 @@ impl Instance {
         InstanceRaw {
             model: (cgmath::Matrix4::from_translation(self.position + offset)
                 * cgmath::Matrix4::from(self.rotation))
-                .into(),
+            .into(),
             tex_index: self.tex_index,
         }
     }
