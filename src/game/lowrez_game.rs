@@ -522,7 +522,7 @@ impl game::Game for LowRezGame {
                 ..
             } = state;
 
-            // Check bullet collisions.
+            // Check bullet collisions (entity 0 is the player, all others are bullets).
             for i in (1..state.entities.len()).rev() {
                 if let Some(hit) =
                     entity::Entity::check_entity_collisions(state.entities[i].pos, &chunk_entities)
@@ -569,10 +569,12 @@ impl game::Game for LowRezGame {
                 }
             }
 
+            // Move entities in each chunk.
             for ci in 0..chunks.len() {
                 for i in 0..chunk_entities[ci].len() {
                     if !chunk_entities[ci][i].move_z(chunk_entity_dirs[ci][i] as f32 * 0.1, chunks)
                     {
+                        // Enemies change direction to bounce off of walls.
                         chunk_entity_dirs[ci][i] *= -1;
                     }
                 }

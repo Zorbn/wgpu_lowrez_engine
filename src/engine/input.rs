@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use winit::event::{ElementState, VirtualKeyCode};
 
+// Keeps track of user input.
 pub struct Input {
     pressed_keys: HashSet<VirtualKeyCode>,
     released_keys: HashSet<VirtualKeyCode>,

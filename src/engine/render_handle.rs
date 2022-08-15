@@ -1,5 +1,6 @@
 use crate::engine::{camera, texture};
 
+// A simple way to access state needed for rendering from a game's render function.
 pub struct RenderHandle<'a> {
     cameras: &'a mut Vec<camera::Camera>,
     view: &'a wgpu::TextureView,

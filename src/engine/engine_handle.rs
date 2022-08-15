@@ -1,6 +1,7 @@
 use crate::engine::{camera, instance, model, pipeline, texture, texture_array, vertex};
 use wgpu::util::DeviceExt;
 
+// A simple way to access engine content and state from a game.
 pub struct EngineHandle<'a> {
     device: &'a mut wgpu::Device,
     queue: &'a mut wgpu::Queue,

@@ -23,6 +23,7 @@ pub fn start_game(game: Box<dyn game::Game>) {
     pollster::block_on(run(game));
 }
 
+// Start the game and handle the update loop.
 async fn run(game: Box<dyn game::Game>) {
     env_logger::init();
     let event_loop = EventLoop::new();

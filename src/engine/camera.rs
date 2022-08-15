@@ -10,9 +10,11 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.5, 1.0,
 );
 
+// Handle to a camera stored in the engine's state.
 #[derive(Copy, Clone)]
 pub struct CameraHandle(pub usize);
 
+// User facing camera.
 pub struct Camera {
     pub viewpoint: ViewPoint,
     buffer: wgpu::Buffer,
@@ -118,6 +120,7 @@ impl Camera {
         (new_width, new_height)
     }
 
+    // Move the camera's position and viewport at the same time.
     pub fn pan(&mut self, x_dist: f32, y_dist: f32, z_dist: f32) {
         self.viewpoint.pos.x += x_dist;
         self.viewpoint.pos.y += y_dist;
@@ -144,6 +147,7 @@ impl Camera {
     }
 }
 
+// The position and orientation of a camera.
 pub struct ViewPoint {
     pub pos: cgmath::Vector3<f32>,
     pub target: cgmath::Vector3<f32>,
