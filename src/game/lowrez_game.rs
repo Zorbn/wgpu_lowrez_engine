@@ -257,7 +257,13 @@ impl LowRezGame {
         handle.create_instance_buffer_from_raw(&raw_instances)
     }
 
-    fn update_camera(v_camera_pos: &mut cgmath::Vector3<f32>, v_camera_target: &mut cgmath::Vector3<f32>, v_camera: camera::CameraHandle, handle: &mut engine_handle::EngineHandle, player_pos: cgmath::Vector3<f32>) {
+    fn update_camera(
+        v_camera_pos: &mut cgmath::Vector3<f32>,
+        v_camera_target: &mut cgmath::Vector3<f32>,
+        v_camera: camera::CameraHandle,
+        handle: &mut engine_handle::EngineHandle,
+        player_pos: cgmath::Vector3<f32>,
+    ) {
         *v_camera_pos = player_pos + CAM_OFFSET + CAM_POS_OFFSET;
         *v_camera_target = player_pos + CAM_OFFSET;
 
@@ -492,7 +498,13 @@ impl game::Game for LowRezGame {
                     state.chunk_models = Self::create_chunk_models(&state.chunks, handle);
                 }
 
-                Self::update_camera(&mut state.v_camera_pos, &mut state.v_camera_target, state.v_camera, handle, player_pos_vec);
+                Self::update_camera(
+                    &mut state.v_camera_pos,
+                    &mut state.v_camera_target,
+                    state.v_camera,
+                    handle,
+                    player_pos_vec,
+                );
             }
 
             if input.was_key_pressed(VirtualKeyCode::Space) {
@@ -528,7 +540,8 @@ impl game::Game for LowRezGame {
                     for hit_z_corner in 0..3 {
                         let norm_hit_z_corner = (hit_z_corner - 1) as f32;
                         let hit_block_z = (state.entities[i].pos.z
-                            + SPRITE_HALF_WIDTH + norm_hit_z_corner * entity::PADDED_SPRITE_WIDTH)
+                            + SPRITE_HALF_WIDTH
+                            + norm_hit_z_corner * entity::PADDED_SPRITE_WIDTH)
                             .floor() as i32;
                         let hit_chunk = ((hit_block_x >> 3) % 2) as usize;
 
@@ -558,14 +571,17 @@ impl game::Game for LowRezGame {
 
             for ci in 0..chunks.len() {
                 for i in 0..chunk_entities[ci].len() {
-                    if !chunk_entities[ci][i].move_z(chunk_entity_dirs[ci][i] as f32 * 0.1, chunks) {
+                    if !chunk_entities[ci][i].move_z(chunk_entity_dirs[ci][i] as f32 * 0.1, chunks)
+                    {
                         chunk_entity_dirs[ci][i] *= -1;
                     }
                 }
             }
 
             // Check player collisions.
-            if let Some(_) = entity::Entity::check_entity_collisions(state.entities[0].pos, &chunk_entities) {
+            if let Some(_) =
+                entity::Entity::check_entity_collisions(state.entities[0].pos, &chunk_entities)
+            {
                 state.chunk_instances[0].position = cgmath::Vector3::new(0.0, 0.0, 0.0);
                 state.chunk_instances[1].position = cgmath::Vector3::new(8.0, 0.0, 0.0);
 
@@ -590,7 +606,13 @@ impl game::Game for LowRezGame {
                 state.pan_distance = 0.0;
 
                 let player_pos_vec = cgmath::Vector3::new(state.entities[0].pos.x, 0.0, 0.0);
-                Self::update_camera(&mut state.v_camera_pos, &mut state.v_camera_target, state.v_camera, handle, player_pos_vec);
+                Self::update_camera(
+                    &mut state.v_camera_pos,
+                    &mut state.v_camera_target,
+                    state.v_camera,
+                    handle,
+                    player_pos_vec,
+                );
 
                 state.chunk_instance_buffers =
                     Self::create_chunk_instance_buffers(&state.chunk_instances, handle);

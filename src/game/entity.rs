@@ -1,9 +1,8 @@
 use crate::{
-    engine::{engine_handle, instance},
+    engine::instance,
     game::{
         horizontal_point::HorizontalPoint,
         lowrez_game,
-        entity,
         voxels::{blocks, chunk},
     },
 };
@@ -50,38 +49,13 @@ impl Entity {
         max_movement != 0.0
     }
 
-    fn get_max_movement(
-        &self,
-        movement: HorizontalPoint<f32>,
-        chunks: &[chunk::Chunk],
-    ) -> HorizontalPoint<f32> {
-        let moved_pos = HorizontalPoint::new(self.pos.x + movement.x, self.pos.z + movement.z);
-
-        if let Some(col) = Self::check_block_collisions(moved_pos, chunks) {
-            HorizontalPoint::new(
-                col.x as f32 - movement.x.signum() - self.pos.x,
-                col.z as f32 - movement.z.signum() - self.pos.z,
-            )
-        } else {
-            movement
-        }
-    }
-
-    // TODO: Collapse duplicate code for finding corner positions.
     pub fn check_entity_collisions(
         pos: HorizontalPoint<f32>,
         chunk_entities: &Vec<Vec<Entity>>,
     ) -> Option<(usize, usize)> {
         for i in 0..4 {
-            let x_corner = (i % 2) * 2 - 1;
-            let z_corner = (i >> 1) * 2 - 1;
-
-            let corner_pos_x =
-                pos.x + lowrez_game::SPRITE_HALF_WIDTH + (x_corner as f32) * PADDED_SPRITE_WIDTH;
-            let corner_pos_z =
-                pos.z + lowrez_game::SPRITE_HALF_WIDTH + (z_corner as f32) * PADDED_SPRITE_WIDTH;
-            let block_x = corner_pos_x.floor() as i32;
-
+            let corner_pos = Self::get_corner_positions(pos, i);
+            let block_x = corner_pos.x.floor() as i32;
             let chunk_i = ((block_x >> 3) % 2) as usize;
 
             for ei in 0..chunk_entities[chunk_i].len() {
@@ -99,15 +73,15 @@ impl Entity {
                         + lowrez_game::SPRITE_HALF_WIDTH
                         + (e_z_corner as f32) * PADDED_SPRITE_WIDTH;
 
-                    if (e_x_corner == -1 && corner_pos_x < e_corner_pos_x)
-                        || (e_z_corner == -1 && corner_pos_z < e_corner_pos_z)
+                    if (e_x_corner == -1 && corner_pos.x < e_corner_pos_x)
+                        || (e_z_corner == -1 && corner_pos.z < e_corner_pos_z)
                     {
                         collided = false;
                         break;
                     }
 
-                    if (e_x_corner == 1 && corner_pos_x > e_corner_pos_x)
-                        || (e_z_corner == 1 && corner_pos_z > e_corner_pos_z)
+                    if (e_x_corner == 1 && corner_pos.x > e_corner_pos_x)
+                        || (e_z_corner == 1 && corner_pos.z > e_corner_pos_z)
                     {
                         collided = false;
                         break;
@@ -123,20 +97,43 @@ impl Entity {
         None
     }
 
+    fn get_corner_positions(pos: HorizontalPoint<f32>, i: i32) -> HorizontalPoint<f32> {
+        let x_corner = (i % 2) * 2 - 1;
+        let z_corner = (i >> 1) * 2 - 1;
+
+        let corner_pos_x =
+            pos.x + lowrez_game::SPRITE_HALF_WIDTH + (x_corner as f32) * PADDED_SPRITE_WIDTH;
+        let corner_pos_z =
+            pos.z + lowrez_game::SPRITE_HALF_WIDTH + (z_corner as f32) * PADDED_SPRITE_WIDTH;
+
+        HorizontalPoint::new(corner_pos_x, corner_pos_z)
+    }
+
+    fn get_max_movement(
+        &self,
+        movement: HorizontalPoint<f32>,
+        chunks: &[chunk::Chunk],
+    ) -> HorizontalPoint<f32> {
+        let moved_pos = HorizontalPoint::new(self.pos.x + movement.x, self.pos.z + movement.z);
+
+        if let Some(col) = Self::check_block_collisions(moved_pos, chunks) {
+            HorizontalPoint::new(
+                col.x as f32 - movement.x.signum() - self.pos.x,
+                col.z as f32 - movement.z.signum() - self.pos.z,
+            )
+        } else {
+            movement
+        }
+    }
+
     fn check_block_collisions(
         pos: HorizontalPoint<f32>,
         chunks: &[chunk::Chunk],
     ) -> Option<HorizontalPoint<i32>> {
         for i in 0..4 {
-            let x_corner = (i % 2) * 2 - 1;
-            let z_corner = (i >> 1) * 2 - 1;
-
-            let block_x =
-                (pos.x + lowrez_game::SPRITE_HALF_WIDTH + (x_corner as f32) * PADDED_SPRITE_WIDTH)
-                    .floor() as i32;
-            let block_z =
-                (pos.z + lowrez_game::SPRITE_HALF_WIDTH + (z_corner as f32) * PADDED_SPRITE_WIDTH)
-                    .floor() as i32;
+            let corner_pos = Self::get_corner_positions(pos, i);
+            let block_x = corner_pos.x.floor() as i32;
+            let block_z = corner_pos.z.floor() as i32;
 
             let chunk_i = ((block_x >> 3) % 2) as usize;
 
@@ -146,16 +143,5 @@ impl Entity {
         }
 
         None
-    }
-
-    pub fn create_instance_buffer(
-        entities: &Vec<Entity>,
-        handle: &mut engine_handle::EngineHandle,
-    ) -> wgpu::Buffer {
-        let instances = entities
-            .iter()
-            .map(|e| e.instance.to_raw())
-            .collect::<Vec<_>>();
-        handle.create_instance_buffer_from_raw(&instances)
     }
 }

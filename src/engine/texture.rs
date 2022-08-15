@@ -202,10 +202,6 @@ impl Texture {
         })
     }
 
-    pub fn texture(&self) -> &wgpu::Texture {
-        &self.texture
-    }
-
     pub fn view(&self) -> &wgpu::TextureView {
         &self.view
     }

@@ -1,4 +1,3 @@
-use crate::game::horizontal_point::HorizontalPoint;
 use crate::game::{entity, voxels::blocks};
 use rand::prelude::*;
 

@@ -2,7 +2,6 @@ use crate::engine::texture;
 use std::num::NonZeroU32;
 
 pub struct TextureArray {
-    textures: Vec<texture::Texture>,
     bind_group_layout: wgpu::BindGroupLayout,
     bind_group: wgpu::BindGroup,
 }
@@ -60,7 +59,6 @@ impl TextureArray {
         });
 
         Ok(Self {
-            textures,
             bind_group_layout,
             bind_group,
         })
